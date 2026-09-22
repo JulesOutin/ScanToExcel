@@ -60,3 +60,33 @@ def test_release_pages_floors_at_zero():
     db = make_db(counter=existing, subscription=None)
     usage.release_pages(db, "user-1", 5)
     assert existing.pages_used == 0
+
+
+def test_crossing_80_percent_returns_true_once():
+    # limite par défaut = 20 pages/mois → le seuil (80 %) est 16 pages
+    existing = UsageCounter(user_id="user-1", period=usage.current_period(), pages_used=14, near_limit_notified=False)
+    db = make_db(counter=existing, subscription=None)
+
+    just_crossed = usage.check_and_reserve_pages(db, "user-1", 3, user_email="a@example.com")  # -> 17 pages
+
+    assert just_crossed is True
+    assert existing.near_limit_notified is True
+    assert existing.user_email == "a@example.com"
+
+
+def test_already_notified_does_not_trigger_again():
+    existing = UsageCounter(user_id="user-1", period=usage.current_period(), pages_used=17, near_limit_notified=True)
+    db = make_db(counter=existing, subscription=None)
+
+    just_crossed = usage.check_and_reserve_pages(db, "user-1", 1)
+
+    assert just_crossed is False
+
+
+def test_staying_under_threshold_does_not_trigger():
+    existing = UsageCounter(user_id="user-1", period=usage.current_period(), pages_used=2, near_limit_notified=False)
+    db = make_db(counter=existing, subscription=None)
+
+    just_crossed = usage.check_and_reserve_pages(db, "user-1", 1)  # -> 3 pages, largement sous 80 %
+
+    assert just_crossed is False

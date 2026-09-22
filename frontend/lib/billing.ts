@@ -7,6 +7,13 @@ export interface SubscriptionOut {
   status: string;
 }
 
+export interface UsageOut {
+  period: string;
+  pages_used: number;
+  limit: number;
+  unlimited: boolean;
+}
+
 async function authHeaders(): Promise<HeadersInit> {
   const token = await getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -15,6 +22,12 @@ async function authHeaders(): Promise<HeadersInit> {
 export async function getSubscription(): Promise<SubscriptionOut> {
   const res = await fetch(`${API_URL}/billing/subscription`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Échec du chargement de l'abonnement (${res.status})`);
+  return res.json();
+}
+
+export async function getUsage(): Promise<UsageOut> {
+  const res = await fetch(`${API_URL}/billing/usage`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(`Échec du chargement de la consommation (${res.status})`);
   return res.json();
 }
 

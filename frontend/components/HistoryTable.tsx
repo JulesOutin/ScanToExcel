@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { DocumentOut } from "@/lib/api";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -46,7 +47,11 @@ export function HistoryTable({
                 disabled={doc.status !== "done" && doc.status !== "needs_review"}
               />
             </td>
-            <td className="py-2">{doc.extracted_data?.supplier.name || doc.original_filename}</td>
+            <td className="py-2">
+              <Link href={`/documents/${doc.id}`} className="hover:underline underline-offset-2">
+                {doc.extracted_data?.supplier.name || doc.original_filename}
+              </Link>
+            </td>
             <td className="py-2">{doc.extracted_data?.invoice_number || "—"}</td>
             <td className="py-2">{STATUS_LABEL[doc.status] ?? doc.status}</td>
             <td className="py-2 text-right font-mono">

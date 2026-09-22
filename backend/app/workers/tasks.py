@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.models.document import Document, DocumentStatus
-from app.services import storage
+from app.services import email, storage
+from app.services.email_templates import confirmation_html
 from app.services.extraction import ExtractionError, extract_invoice, validate_invoice
 from app.workers.celery_app import celery_app
 
@@ -35,6 +36,22 @@ def process_document(self, document_id: str) -> None:
             doc.confidence = invoice.confidence
             doc.status = DocumentStatus.NEEDS_REVIEW if warnings else DocumentStatus.DONE
             doc.error_message = None
+
+            if doc.user_email:
+                try:
+                    email.send_email(
+                        doc.user_email,
+                        "Ta facture est prête",
+                        confirmation_html(
+                            invoice_number=invoice.invoice_number,
+                            supplier_name=invoice.supplier.name,
+                            total=invoice.total,
+                            currency=invoice.currency or "EUR",
+                            document_url=f"{settings.FRONTEND_URL}/documents/{doc.id}",
+                        ),
+                    )
+                except Exception:
+                    logger.exception("Échec de l'email de confirmation pour le document %s", doc.id)
         except ExtractionError as exc:
             doc.status = DocumentStatus.FAILED
             doc.error_message = str(exc)
@@ -42,6 +59,11 @@ def process_document(self, document_id: str) -> None:
         db.commit()
     finally:
         db.close()
+
+
+@celery_app.task(name="app.workers.tasks.send_transactional_email")
+def send_transactional_email(to_email: str, subject: str, html: str) -> None:
+    email.send_email(to_email, subject, html)
 
 
 @celery_app.task(name="app.workers.tasks.purge_expired_originals")

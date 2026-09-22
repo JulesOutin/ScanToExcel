@@ -79,7 +79,9 @@ Copie le secret affiché (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
 
 - [x] Phase 1 — Prototype : upload, un seul type de document, extraction → JSON, export Excel, stockage temporaire (voir l'artifact publié)
 - [x] Phase 2 — MVP utilisable : auth Supabase (lien magique + mot de passe, middleware de protection des routes), historique, traitement asynchrone (Celery), gestion d'erreurs, limites du plan gratuit appliquées à l'upload (402 si dépassement), purge programmée des fichiers originaux (Celery beat), Docker.
-- [x] Phase 3 — Monétisation : Stripe Checkout (plans Personnel/Pro), portail client, webhook de synchronisation d'abonnement, page `/facturation`. **Manque encore** : plan gratuit affiché avec la consommation réelle du mois (l'API l'a, le front ne l'affiche pas encore), emails transactionnels.
+- [x] Phase 3 — Monétisation : Stripe Checkout (plans Personnel/Pro), portail client, webhook de synchronisation d'abonnement, page `/facturation` avec consommation réelle du mois (barre de progression, alerte visuelle à 80 %).
+- [x] Emails transactionnels : confirmation d'extraction (envoyée par le worker après traitement) et alerte à 80 % du quota gratuit (déclenchée une seule fois par période) — via Resend, silencieux si `RESEND_API_KEY` n'est pas configurée.
+- [x] Page de détail document (`/documents/[id]`) : aperçu du fichier original (image ou lien PDF via URL signée), fiche extraite éditable, suivi en direct pendant l'extraction, suppression.
 - [ ] Phase 4 — Produit commercial : SEO, i18n, intégrations comptables, contrôles SIRET/TVA FR.
 
 ## Notes importantes
@@ -88,3 +90,4 @@ Copie le secret affiché (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
 - Les modèles ne valident pas encore l'unicité ni les contraintes métier avancées (SIRET, TVA FR) : à ajouter en Phase 4 selon la stratégie de différenciation.
 - Le plan d'un utilisateur vit dans `subscriptions` (table locale), synchronisée par le webhook Stripe — jamais lue directement depuis l'API Stripe en chemin critique.
 - La suppression automatique (`purge_expired_originals`) ne touche que le fichier source dans le stockage objet ; les données déjà extraites restent en base.
+- Les emails transactionnels utilisent Resend (`RESEND_API_KEY`, `EMAIL_FROM`) ; sans clé configurée, l'envoi est simplement loggé et ignoré — aucun impact sur le reste du pipeline.

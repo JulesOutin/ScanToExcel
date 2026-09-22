@@ -74,6 +74,18 @@ export async function getDocument(id: string): Promise<DocumentOut> {
   return res.json();
 }
 
+export async function getDocumentFileUrl(id: string): Promise<{ url: string; content_type: string } | null> {
+  const res = await fetch(`${API_URL}/documents/${id}/file-url`, { headers: await authHeaders() });
+  if (res.status === 410) return null; // fichier original purgé après le délai de rétention
+  if (!res.ok) throw new Error(`Échec du chargement de l'aperçu (${res.status})`);
+  return res.json();
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/documents/${id}`, { method: "DELETE", headers: await authHeaders() });
+  if (!res.ok && res.status !== 204) throw new Error(`Échec de la suppression (${res.status})`);
+}
+
 export async function updateDocument(id: string, data: ExtractedInvoice): Promise<DocumentOut> {
   const res = await fetch(`${API_URL}/documents/${id}`, {
     method: "PATCH",

@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     STRIPE_PRICE_ID_PERSONAL: str = ""
     STRIPE_PRICE_ID_PRO: str = ""
 
+    # Emails transactionnels (Resend — https://resend.com)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "ScanToExcel <notifications@scantoexcel.fr>"
+
     # Limites d'usage (plan gratuit)
     FREE_PLAN_PAGES_PER_MONTH: int = 20
 

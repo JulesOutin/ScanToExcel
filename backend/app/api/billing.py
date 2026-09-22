@@ -9,6 +9,7 @@ from app.core.db import get_db
 from app.core.security import CurrentUser, get_current_user
 from app.models.document import Subscription
 from app.services import billing
+from app.services import usage as usage_service
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 settings = get_settings()
@@ -29,10 +30,30 @@ class SubscriptionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UsageOut(BaseModel):
+    period: str
+    pages_used: int
+    limit: int
+    unlimited: bool
+
+
 PLAN_TO_PRICE = {
     "personal": settings.STRIPE_PRICE_ID_PERSONAL,
     "pro": settings.STRIPE_PRICE_ID_PRO,
 }
+
+
+@router.get("/usage", response_model=UsageOut)
+def get_usage(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    local_sub = usage_service.get_subscription(db, user.id)
+    counter = usage_service.get_or_create_counter(db, user.id)
+    db.commit()
+    return UsageOut(
+        period=counter.period,
+        pages_used=counter.pages_used,
+        limit=settings.FREE_PLAN_PAGES_PER_MONTH,
+        unlimited=usage_service.is_unlimited(local_sub),
+    )
 
 
 @router.get("/subscription", response_model=SubscriptionOut)

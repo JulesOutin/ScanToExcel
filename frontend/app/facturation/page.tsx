@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSubscription, startCheckout, openBillingPortal, type SubscriptionOut } from "@/lib/billing";
+import { getSubscription, getUsage, startCheckout, openBillingPortal, type SubscriptionOut, type UsageOut } from "@/lib/billing";
 
 const PLAN_LABEL: Record<string, string> = { free: "Gratuit", personal: "Personnel", pro: "Professionnel" };
 
 export default function BillingPage() {
   const [sub, setSub] = useState<SubscriptionOut | null>(null);
+  const [usage, setUsage] = useState<UsageOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     getSubscription().then(setSub).catch((e) => setError(e.message));
+    getUsage().then(setUsage).catch(() => {});
   }, []);
 
   const upgrade = async (plan: "personal" | "pro") => {
@@ -43,6 +45,32 @@ export default function BillingPage() {
         Plan actuel : <strong>{sub ? PLAN_LABEL[sub.plan] : "…"}</strong>
         {sub && sub.plan === "free" && " — 20 pages / mois"}
       </p>
+
+      {usage && !usage.unlimited && (
+        <div className="bg-paper-raised border border-rule/60 rounded-2xl p-5 mb-8">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-ink/70">Consommation — {usage.period}</span>
+            <span className="font-mono">{usage.pages_used} / {usage.limit} pages</span>
+          </div>
+          <div className="h-2 rounded-full bg-rule/40 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${usage.pages_used / usage.limit >= 0.8 ? "bg-orange-500" : "bg-accent"}`}
+              style={{ width: `${Math.min(100, (usage.pages_used / usage.limit) * 100)}%` }}
+            />
+          </div>
+          {usage.pages_used / usage.limit >= 0.8 && (
+            <p className="text-sm text-orange-800 mt-2">
+              Tu approches de la limite mensuelle — passe à un plan payant pour ne pas être bloqué.
+            </p>
+          )}
+        </div>
+      )}
+
+      {usage?.unlimited && (
+        <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2 mb-8 inline-block">
+          Usage illimité avec ton plan actuel.
+        </p>
+      )}
 
       {error && <p className="mb-4 text-sm text-orange-800 bg-orange-100 rounded-lg px-3 py-2">{error}</p>}
 

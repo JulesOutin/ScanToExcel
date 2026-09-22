@@ -14,8 +14,9 @@ from app.schemas.document import DocumentOut, DocumentUpdateIn, ExportRequestIn
 from app.services import export as export_service
 from app.services import storage
 from app.services import usage
+from app.services.email_templates import near_limit_html
 from app.services.extraction import count_pages
-from app.workers.tasks import process_document
+from app.workers.tasks import process_document, send_transactional_email
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 settings = get_settings()
@@ -40,7 +41,7 @@ async def upload_document(
         page_count = 1  # un PDF illisible sera de toute façon rejeté à l'extraction
 
     try:
-        usage.check_and_reserve_pages(db, user.id, page_count)
+        should_notify_near_limit = usage.check_and_reserve_pages(db, user.id, page_count, user_email=user.email)
     except usage.UsageLimitExceeded as exc:
         db.rollback()
         raise HTTPException(
@@ -59,6 +60,7 @@ async def upload_document(
     doc = Document(
         id=uuid.uuid4(),
         user_id=user.id,
+        user_email=user.email,
         original_filename=file.filename or "document",
         content_type=file.content_type,
         page_count=page_count,
@@ -70,6 +72,19 @@ async def upload_document(
     db.refresh(doc)
 
     process_document.delay(str(doc.id))
+
+    if should_notify_near_limit and user.email:
+        counter = usage.get_or_create_counter(db, user.id)
+        send_transactional_email.delay(
+            user.email,
+            "Tu approches de ta limite mensuelle gratuite",
+            near_limit_html(
+                pages_used=counter.pages_used,
+                limit=settings.FREE_PLAN_PAGES_PER_MONTH,
+                period=counter.period,
+                billing_url=f"{settings.FRONTEND_URL}/facturation",
+            ),
+        )
 
     return doc
 
@@ -117,6 +132,24 @@ def update_document(
     db.commit()
     db.refresh(doc)
     return doc
+
+
+@router.get("/{document_id}/file-url")
+def get_document_file_url(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """URL signée temporaire vers le fichier original — pour l'aperçu dans la page de détail."""
+    doc = db.get(Document, document_id)
+    if doc is None or doc.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document introuvable.")
+    if doc.storage_deleted_at is not None:
+        raise HTTPException(
+            status.HTTP_410_GONE,
+            "Le fichier original a été supprimé après le délai de rétention. Les données extraites restent disponibles.",
+        )
+    return {"url": storage.presigned_get_url(doc.storage_key), "content_type": doc.content_type}
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
