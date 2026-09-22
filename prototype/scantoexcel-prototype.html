@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ScanToExcel — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,560;0,9..144,650;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1c231f;
+    --ink-soft: #4b564e;
+    --paper: #eceadf;
+    --paper-raised: #f7f6ef;
+    --rule: #c7c0a6;
+    --rule-soft: #ded9c6;
+    --accent: #2f6f5e;
+    --accent-dark: #204b3f;
+    --accent-ink: #eef4f1;
+    --warn: #a8502e;
+    --warn-bg: #f2e1d4;
+    --ok-bg: #e3ede4;
+    --ok-ink: #2f6f4a;
+    --shadow: 0 1px 0 rgba(28,35,31,0.06);
+    --radius-card: 18px;
+    --radius-control: 9px;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --ink: #ece8dc;
+    --ink-soft: #b7b2a0;
+    --paper: #171a16;
+    --paper-raised: #21251f;
+    --rule: #3a4038;
+    --rule-soft: #2b2f28;
+    --accent: #6fbfa4;
+    --accent-dark: #8fd4bb;
+    --accent-ink: #10201a;
+    --warn: #e08a63;
+    --warn-bg: #3a271c;
+    --ok-bg: #1c2f22;
+    --ok-ink: #7fc99a;
+    --shadow: 0 1px 0 rgba(0,0,0,0.3);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #ece8dc;
+      --ink-soft: #b7b2a0;
+      --paper: #171a16;
+      --paper-raised: #21251f;
+      --rule: #3a4038;
+      --rule-soft: #2b2f28;
+      --accent: #6fbfa4;
+      --accent-dark: #8fd4bb;
+      --accent-ink: #10201a;
+      --warn: #e08a63;
+      --warn-bg: #3a271c;
+      --ok-bg: #1c2f22;
+      --ok-ink: #7fc99a;
+      --shadow: 0 1px 0 rgba(0,0,0,0.3);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+  header.top {
+    margin-bottom: 34px;
+  }
+  .kicker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    margin: 0 0 6px;
+  }
+  h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 650;
+    font-size: 38px;
+    line-height: 1.05;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .lede {
+    max-width: 46ch;
+    color: var(--ink-soft);
+    margin: 0;
+    font-size: 15.5px;
+  }
+  section.card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--radius-card);
+    padding: 26px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
+  }
+  section.card > h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 560;
+    font-size: 19px;
+    margin: 0 0 4px;
+  }
+  section.card > .sub {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    margin: 0 0 18px;
+  }
+
+  /* Dropzone */
+  .dropzone {
+    border: 1.5px dashed var(--rule);
+    border-radius: 14px;
+    padding: 30px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent);
+    background: var(--ok-bg);
+  }
+  .dropzone .icon {
+    font-size: 26px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .dropzone .txt strong { font-weight: 600; }
+  .dropzone .hint {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  input[type=file] { display: none; }
+
+  .preview-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-top: 18px;
+  }
+  .preview-thumb {
+    width: 92px;
+    height: 120px;
+    flex: none;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--rule-soft);
+    background: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .preview-meta { flex: 1; min-width: 0; }
+  .preview-name {
+    font-weight: 500;
+    word-break: break-word;
+    margin: 0 0 4px;
+  }
+  .preview-status {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+
+  /* Buttons */
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity .12s ease, transform .05s ease;
+  }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .btn-primary:hover:not(:disabled) { opacity: .92; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--rule);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--paper); }
+  .btn-text {
+    background: none;
+    border: none;
+    color: var(--accent-dark);
+    padding: 4px 2px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* Extraction sheet */
+  .sheet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .confidence-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .pill-good { background: var(--ok-bg); color: var(--ok-ink); }
+  .pill-mid  { background: var(--warn-bg); color: var(--warn); }
+  .pill-low  { background: var(--warn-bg); color: var(--warn); }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+    margin-bottom: 6px;
+  }
+  .field-grid.full { grid-template-columns: 1fr; }
+  @media (max-width: 520px) {
+    .field-grid { grid-template-columns: 1fr; }
+  }
+  .field label {
+    display: block;
+    font-size: 11.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+  }
+  .field input {
+    width: 100%;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14.5px;
+    padding: 8px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 7px;
+    background: var(--paper-raised);
+    color: var(--ink);
+  }
+  .field input[data-num] { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+  .field input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--paper);
+  }
+
+  .warnings { margin: 14px 0 0; padding: 0; list-style: none; }
+  .warnings li {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 13px;
+    color: var(--warn);
+    background: var(--warn-bg);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--rule-soft);
+    margin: 20px 0;
+  }
+
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.items th {
+    text-align: left;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 6px 8px;
+  }
+  table.items td {
+    border-bottom: 1px solid var(--rule-soft);
+    padding: 6px 6px;
+    vertical-align: middle;
+  }
+  table.items input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    padding: 4px 3px;
+    border-radius: 5px;
+  }
+  table.items input[data-num] { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+  table.items input:focus { outline: none; background: var(--paper); }
+  table.items td.num { text-align: right; }
+  table.items td.rm { width: 28px; text-align: center; }
+  .rm-btn {
+    background: none; border: none; color: var(--ink-soft);
+    cursor: pointer; font-size: 15px; padding: 2px 6px; border-radius: 5px;
+  }
+  .rm-btn:hover { color: var(--warn); background: var(--warn-bg); }
+
+  /* History table */
+  table.history { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.history th {
+    text-align: left;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 8px 8px;
+  }
+  table.history td {
+    border-bottom: 1px solid var(--rule-soft);
+    padding: 9px 8px;
+  }
+  table.history td.num { text-align: right; font-family: 'IBM Plex Mono', monospace; }
+  .empty-state {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    padding: 10px 2px 2px;
+  }
+
+  .thinking {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin-top: 16px;
+  }
+  .spinner {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--rule);
+    border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .capnote {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--rule-soft);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+
+  footer {
+    margin-top: 30px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="kicker">SCANTOEXCEL · PROTOTYPE PHASE 1</p>
+    <h1>Une facture entre,<br><em>un tableur</em> sort.</h1>
+    <p class="lede">Dépose une facture PDF ou image. L'IA en tire les champs clés — tu vérifies et corriges ce qu'il faut — puis tu exportes le lot en Excel ou CSV.</p>
+  </header>
+
+  <section class="card">
+    <h2>1. Déposer un document</h2>
+    <p class="sub">Un fichier à la fois — PDF (1ère page) ou image (JPG, PNG, WebP).</p>
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choisir un fichier">
+      <span class="icon">🧾</span>
+      <div class="txt"><strong>Glisse un fichier ici</strong>, ou clique pour choisir</div>
+      <div class="hint" id="accept-hint">PDF · JPG · PNG · WEBP</div>
+    </div>
+    <input type="file" id="fileInput" accept="application/pdf,image/jpeg,image/png,image/webp">
+
+    <div class="preview-row" id="previewRow" style="display:none;">
+      <div class="preview-thumb" id="previewThumb"></div>
+      <div class="preview-meta">
+        <p class="preview-name" id="previewName"></p>
+        <p class="preview-status" id="previewStatus">Prêt à extraire.</p>
+        <div class="btn-row">
+          <button class="btn-primary" id="extractBtn">Extraire les données</button>
+          <button class="btn-ghost" id="clearBtn">Changer de fichier</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="thinking" id="thinking" style="display:none;">
+      <span class="spinner"></span>
+      <span id="thinkingLabel">Lecture du document…</span>
+    </div>
+
+    <div class="capnote" id="noSampleNote" style="display:none;">
+      L'extraction assistée par IA n'est pas disponible dans cette vue. Tu peux quand même explorer l'interface, mais aucune donnée ne sera lue automatiquement.
+    </div>
+  </section>
+
+  <section class="card" id="sheetCard" style="display:none;">
+    <div class="sheet-head">
+      <div>
+        <h2>2. Fiche extraite</h2>
+        <p class="sub" style="margin:0;">Corrige les champs avant d'ajouter au lot.</p>
+      </div>
+      <span class="confidence-pill" id="confidencePill">—</span>
+    </div>
+
+    <div class="field-grid">
+      <div class="field"><label for="f-supplier">Fournisseur</label><input id="f-supplier"></div>
+      <div class="field"><label for="f-siret">N° TVA / SIRET</label><input id="f-siret"></div>
+      <div class="field field-grid-2col" style="grid-column: 1 / -1;"><label for="f-address">Adresse</label><input id="f-address"></div>
+      <div class="field"><label for="f-invnum">N° de facture</label><input id="f-invnum"></div>
+      <div class="field"><label for="f-currency">Devise</label><input id="f-currency"></div>
+      <div class="field"><label for="f-date">Date de facture</label><input id="f-date" placeholder="AAAA-MM-JJ"></div>
+      <div class="field"><label for="f-due">Échéance</label><input id="f-due" placeholder="AAAA-MM-JJ"></div>
+      <div class="field"><label for="f-subtotal">Sous-total HT</label><input id="f-subtotal" data-num></div>
+      <div class="field"><label for="f-tax">TVA / Taxe</label><input id="f-tax" data-num></div>
+      <div class="field"><label for="f-total">Total TTC</label><input id="f-total" data-num></div>
+    </div>
+
+    <ul class="warnings" id="warnings"></ul>
+
+    <hr class="rule">
+
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:34%;">Description</th>
+          <th style="width:12%;">Qté</th>
+          <th style="width:16%;">Prix unit.</th>
+          <th style="width:12%;">TVA %</th>
+          <th style="width:16%;">Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+    <button class="btn-text" id="addItemBtn" style="margin-top:8px;">+ Ajouter une ligne</button>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="addToBatchBtn">Ajouter au lot</button>
+      <button class="btn-ghost" id="discardBtn">Ignorer cette fiche</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. Lot en cours</h2>
+    <p class="sub" id="batchSub">Aucune facture ajoutée pour l'instant.</p>
+
+    <table class="history" id="historyTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>Fournisseur</th>
+          <th>N° facture</th>
+          <th>Date</th>
+          <th style="text-align:right;">Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="exportXlsxBtn" disabled>Exporter en Excel (.xlsx)</button>
+      <button class="btn-ghost" id="exportCsvBtn" disabled>Exporter en CSV</button>
+      <button class="btn-ghost" id="clearBatchBtn" disabled>Vider le lot</button>
+    </div>
+    <div class="capnote" id="noDownloadNote" style="display:none;">
+      L'export de fichiers n'est pas disponible dans cette vue.
+    </div>
+  </section>
+
+  <footer>Prototype interne — extraction assistée par IA, à vérifier avant tout usage comptable. Rien n'est envoyé à un serveur ScanToExcel : les documents restent dans cette session.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function() {
+  "use strict";
+
+  // ---------- Capability wiring ----------
+  let sampleFn = null;
+  let downloadsApi = null;
+  let imageLimits = null;
+
+  async function initCapabilities() {
+    try {
+      if (window.claude && typeof window.claude.use === "function") {
+        sampleFn = await window.claude.use("sample");
+        downloadsApi = await window.claude.use("downloads");
+      }
+    } catch (e) { /* absence is normal */ }
+
+    document.getElementById("noSampleNote").style.display = sampleFn ? "none" : "block";
+    document.getElementById("extractBtn").disabled = !sampleFn;
+
+    document.getElementById("noDownloadNote").style.display = downloadsApi ? "none" : "block";
+    updateExportButtons();
+
+    if (sampleFn && sampleFn.limits) {
+      try { imageLimits = await sampleFn.limits(); } catch (e) { imageLimits = null; }
+    }
+  }
+
+  // ---------- PDF worker setup ----------
+  if (window.pdfjsLib) {
+    try {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    } catch (e) { /* ignore */ }
+  }
+
+  // ---------- State ----------
+  let currentFile = null;      // File chosen by the viewer
+  let currentImageBlob = null; // Blob actually sent to sample (image, incl. rendered PDF page)
+  let currentPreviewURL = null;
+  let current = null;          // extracted, editable invoice object
+  let batch = [];              // session batch of invoices
+
+  const $ = (id) => document.getElementById(id);
+
+  function uid() {
+    return "inv_" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function loadBatchFromStorage() {
+    try {
+      const raw = localStorage.getItem("scantoexcel_batch");
+      if (raw) batch = JSON.parse(raw);
+    } catch (e) { batch = []; }
+  }
+  function saveBatchToStorage() {
+    try { localStorage.setItem("scantoexcel_batch", JSON.stringify(batch)); } catch (e) { /* ignore */ }
+  }
+
+  // ---------- File intake ----------
+  const dropzone = $("dropzone");
+  const fileInput = $("fileInput");
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+  });
+  ["dragenter", "dragover"].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("drag"); })
+  );
+  ["dragleave", "drop"].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); })
+  );
+  dropzone.addEventListener("drop", (e) => {
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  fileInput.addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) handleFile(f);
+  });
+
+  async function handleFile(file) {
+    currentFile = file;
+    $("previewRow").style.display = "flex";
+    $("previewName").textContent = file.name;
+    $("previewStatus").textContent = "Préparation de l'aperçu…";
+    $("extractBtn").disabled = true;
+    $("sheetCard").style.display = "none";
+
+    try {
+      if (file.type === "application/pdf") {
+        currentImageBlob = await pdfFirstPageToBlob(file);
+      } else {
+        currentImageBlob = file;
+      }
+      if (currentPreviewURL) URL.revokeObjectURL(currentPreviewURL);
+      currentPreviewURL = URL.createObjectURL(currentImageBlob);
+      $("previewThumb").innerHTML = '<img src="' + currentPreviewURL + '" alt="Aperçu du document">';
+      $("previewStatus").textContent = "Prêt à extraire.";
+      $("extractBtn").disabled = !sampleFn;
+    } catch (err) {
+      $("previewThumb").innerHTML = "📄";
+      $("previewStatus").textContent = "Aperçu impossible (" + (file.type === "application/pdf" ? "PDF non rendu — réessaie avec une image" : "format non pris en charge") + ").";
+      currentImageBlob = null;
+    }
+  }
+
+  async function pdfFirstPageToBlob(file) {
+    if (!window.pdfjsLib) throw new Error("pdf.js indisponible");
+    const buf = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png");
+    });
+  }
+
+  $("clearBtn").addEventListener("click", resetUpload);
+  function resetUpload() {
+    currentFile = null;
+    currentImageBlob = null;
+    fileInput.value = "";
+    $("previewRow").style.display = "none";
+    $("sheetCard").style.display = "none";
+  }
+
+  // ---------- Extraction ----------
+  const EXTRACTION_PROMPT = [
+    "Tu es un moteur d'extraction de données pour un outil qui convertit des factures en tableur.",
+    "Analyse l'image jointe (une facture, un reçu, ou un document assimilé) et réponds UNIQUEMENT avec un objet JSON, sans aucun texte autour, au format exact suivant :",
+    "",
+    '{"document_type":"invoice|receipt|other","supplier":{"name":"","registration_number":"","address":""},"invoice_number":"","invoice_date":"AAAA-MM-JJ","due_date":"AAAA-MM-JJ","currency":"EUR","subtotal":0,"tax":0,"total":0,"items":[{"description":"","quantity":1,"unit_price":0,"tax_rate":0,"total":0}],"confidence":0}',
+    "",
+    "Règles :",
+    "- Utilise une chaîne vide ou 0 quand une information est absente ou illisible ; ne l'invente jamais.",
+    "- Tous les montants et quantités sont des nombres JSON (jamais de symbole monétaire, jamais de texte).",
+    "- tax_rate est un pourcentage (ex. 20 pour 20 %).",
+    "- confidence est un nombre entre 0 et 1 reflétant ta confiance globale dans l'extraction.",
+    "- Si le document n'est pas une facture ni un reçu, mets document_type à \"other\" et remplis les champs visibles du mieux possible."
+  ].join("\n");
+
+  $("extractBtn").addEventListener("click", runExtraction);
+
+  async function runExtraction() {
+    if (!sampleFn || !currentImageBlob) return;
+    $("thinking").style.display = "flex";
+    $("thinkingLabel").textContent = "Lecture du document…";
+    $("extractBtn").disabled = true;
+
+    try {
+      const data = await sampleFn.json(EXTRACTION_PROMPT, {
+        images: currentImageBlob,
+        modelTier: "default"
+      });
+      current = normalizeExtraction(data);
+      renderSheet();
+      $("sheetCard").style.display = "block";
+      $("sheetCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      const msg = friendlySampleError(err);
+      $("previewStatus").textContent = msg;
+    } finally {
+      $("thinking").style.display = "none";
+      $("extractBtn").disabled = false;
+    }
+  }
+
+  function friendlySampleError(err) {
+    const code = err && err.code;
+    switch (code) {
+      case "not_granted": return "Extraction refusée pour cette session.";
+      case "image_rejected": return "Image illisible ou trop volumineuse — réessaie avec un autre fichier.";
+      case "rate_limited": return "Trop de demandes pour l'instant — réessaie dans un instant.";
+      case "refused": return "L'extraction a été refusée pour ce document.";
+      case "empty_completion": return "Aucune donnée renvoyée — réessaie, ou avec une image plus nette.";
+      case "invalid_json": return "Réponse illisible — réessaie l'extraction.";
+      default: return "Échec de l'extraction — réessaie.";
+    }
+  }
+
+  function num(v) {
+    const n = typeof v === "string" ? parseFloat(v.replace(",", ".")) : v;
+    return typeof n === "number" && isFinite(n) ? n : 0;
+  }
+
+  function normalizeExtraction(data) {
+    data = data || {};
+    const supplier = data.supplier || {};
+    const items = Array.isArray(data.items) ? data.items : [];
+    return {
+      id: uid(),
+      document_type: data.document_type || "other",
+      supplier: {
+        name: supplier.name || "",
+        registration_number: supplier.registration_number || "",
+        address: supplier.address || ""
+      },
+      invoice_number: data.invoice_number || "",
+      invoice_date: data.invoice_date || "",
+      due_date: data.due_date || "",
+      currency: data.currency || "EUR",
+      subtotal: num(data.subtotal),
+      tax: num(data.tax),
+      total: num(data.total),
+      items: items.map(it => ({
+        description: it.description || "",
+        quantity: num(it.quantity) || 1,
+        unit_price: num(it.unit_price),
+        tax_rate: num(it.tax_rate),
+        total: num(it.total)
+      })),
+      confidence: typeof data.confidence === "number" ? data.confidence : 0
+    };
+  }
+
+  // ---------- Sheet rendering ----------
+  const FIELD_MAP = [
+    ["f-supplier", ["supplier", "name"]],
+    ["f-siret", ["supplier", "registration_number"]],
+    ["f-address", ["supplier", "address"]],
+    ["f-invnum", ["invoice_number"]],
+    ["f-currency", ["currency"]],
+    ["f-date", ["invoice_date"]],
+    ["f-due", ["due_date"]],
+    ["f-subtotal", ["subtotal"]],
+    ["f-tax", ["tax"]],
+    ["f-total", ["total"]]
+  ];
+
+  function getPath(obj, path) {
+    return path.reduce((o, k) => (o ? o[k] : undefined), obj);
+  }
+  function setPath(obj, path, val) {
+    let o = obj;
+    for (let i = 0; i < path.length - 1; i++) o = o[path[i]];
+    o[path[path.length - 1]] = val;
+  }
+
+  function renderSheet() {
+    FIELD_MAP.forEach(([id, path]) => {
+      const el = $(id);
+      const val = getPath(current, path);
+      el.value = (typeof val === "number") ? String(val) : (val || "");
+    });
+    renderConfidence();
+    renderItems();
+    renderWarnings();
+  }
+
+  FIELD_MAP.forEach(([id, path]) => {
+    $(id).addEventListener("input", (e) => {
+      if (!current) return;
+      const isNum = e.target.hasAttribute("data-num");
+      setPath(current, path, isNum ? num(e.target.value) : e.target.value);
+      renderWarnings();
+      renderConfidence();
+    });
+  });
+
+  function renderConfidence() {
+    const c = current.confidence;
+    const pill = $("confidencePill");
+    pill.textContent = "Confiance : " + Math.round(c * 100) + " %";
+    pill.className = "confidence-pill " + (c >= 0.85 ? "pill-good" : c >= 0.6 ? "pill-mid" : "pill-low");
+  }
+
+  function renderItems() {
+    const tbody = $("itemsBody");
+    tbody.innerHTML = "";
+    current.items.forEach((it, idx) => tbody.appendChild(itemRow(it, idx)));
+  }
+
+  function itemRow(it, idx) {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td><input data-field="description" value="' + escAttr(it.description) + '"></td>' +
+      '<td class="num"><input data-num data-field="quantity" value="' + it.quantity + '"></td>' +
+      '<td class="num"><input data-num data-field="unit_price" value="' + it.unit_price + '"></td>' +
+      '<td class="num"><input data-num data-field="tax_rate" value="' + it.tax_rate + '"></td>' +
+      '<td class="num"><input data-num data-field="total" value="' + it.total + '"></td>' +
+      '<td class="rm"><button class="rm-btn" title="Supprimer la ligne">✕</button></td>';
+
+    tr.querySelectorAll("input").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const field = inp.getAttribute("data-field");
+        const isNum = inp.hasAttribute("data-num");
+        current.items[idx][field] = isNum ? num(inp.value) : inp.value;
+        renderWarnings();
+      });
+    });
+    tr.querySelector(".rm-btn").addEventListener("click", () => {
+      current.items.splice(idx, 1);
+      renderItems();
+      renderWarnings();
+    });
+    return tr;
+  }
+
+  function escAttr(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+
+  $("addItemBtn").addEventListener("click", () => {
+    current.items.push({ description: "", quantity: 1, unit_price: 0, tax_rate: 0, total: 0 });
+    renderItems();
+  });
+
+  function isValidISODate(s) {
+    if (!s) return true; // empty is allowed, just unconfirmed
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+  }
+
+  function renderWarnings() {
+    const warnings = [];
+    if (Math.abs((current.subtotal + current.tax) - current.total) > 0.02 && current.total !== 0) {
+      warnings.push("Sous-total + TVA (" + (current.subtotal + current.tax).toFixed(2) + ") ne correspond pas au total (" + current.total.toFixed(2) + ").");
+    }
+    if (!isValidISODate(current.invoice_date)) warnings.push("Date de facture invalide (attendu AAAA-MM-JJ).");
+    if (!isValidISODate(current.due_date)) warnings.push("Date d'échéance invalide (attendu AAAA-MM-JJ).");
+    if (!current.currency || current.currency.length !== 3) warnings.push("Devise absente ou incorrecte (code à 3 lettres attendu, ex. EUR).");
+    if (!current.invoice_number) warnings.push("Numéro de facture manquant.");
+    current.items.forEach((it, i) => {
+      const expected = it.quantity * it.unit_price;
+      if (it.total !== 0 && Math.abs(expected - it.total) > Math.max(0.02, expected * 0.02)) {
+        warnings.push("Ligne " + (i + 1) + " : quantité × prix unitaire (" + expected.toFixed(2) + ") ≠ total de ligne (" + it.total.toFixed(2) + ").");
+      }
+    });
+
+    const ul = $("warnings");
+    ul.innerHTML = "";
+    warnings.forEach(w => {
+      const li = document.createElement("li");
+      li.innerHTML = "⚠ " + w;
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- Batch ----------
+  $("addToBatchBtn").addEventListener("click", () => {
+    if (!current) return;
+    batch.push(JSON.parse(JSON.stringify(current)));
+    saveBatchToStorage();
+    renderHistory();
+    resetUpload();
+  });
+  $("discardBtn").addEventListener("click", () => {
+    current = null;
+    resetUpload();
+  });
+
+  function renderHistory() {
+    const sub = $("batchSub");
+    const table = $("historyTable");
+    const tbody = $("historyBody");
+    tbody.innerHTML = "";
+
+    if (batch.length === 0) {
+      sub.textContent = "Aucune facture ajoutée pour l'instant.";
+      table.style.display = "none";
+    } else {
+      sub.textContent = batch.length + " facture" + (batch.length > 1 ? "s" : "") + " dans le lot.";
+      table.style.display = "table";
+      batch.forEach((inv, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + escAttr(inv.supplier.name || "—") + "</td>" +
+          "<td>" + escAttr(inv.invoice_number || "—") + "</td>" +
+          "<td>" + escAttr(inv.invoice_date || "—") + "</td>" +
+          '<td class="num">' + inv.total.toFixed(2) + " " + escAttr(inv.currency) + "</td>" +
+          '<td><button class="rm-btn" title="Retirer du lot">✕</button></td>';
+        tr.querySelector(".rm-btn").addEventListener("click", () => {
+          batch.splice(idx, 1);
+          saveBatchToStorage();
+          renderHistory();
+        });
+        tbody.appendChild(tr);
+      });
+    }
+    updateExportButtons();
+  }
+
+  $("clearBatchBtn").addEventListener("click", () => {
+    if (batch.length && !confirm("Vider le lot en cours (" + batch.length + " facture(s)) ?")) return;
+    batch = [];
+    saveBatchToStorage();
+    renderHistory();
+  });
+
+  function updateExportButtons() {
+    const hasBatch = batch.length > 0;
+    $("exportXlsxBtn").disabled = !hasBatch || !downloadsApi;
+    $("exportCsvBtn").disabled = !hasBatch || !downloadsApi;
+    $("clearBatchBtn").disabled = !hasBatch;
+  }
+
+  // ---------- Export ----------
+  function csvEscape(v) {
+    const s = String(v == null ? "" : v);
+    return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  $("exportCsvBtn").addEventListener("click", async () => {
+    if (!downloadsApi || batch.length === 0) return;
+    const header = ["Fournisseur", "N° TVA/SIRET", "Adresse", "N° facture", "Date facture", "Échéance", "Devise", "Sous-total", "TVA", "Total", "Confiance"];
+    const rows = batch.map(inv => [
+      inv.supplier.name, inv.supplier.registration_number, inv.supplier.address,
+      inv.invoice_number, inv.invoice_date, inv.due_date, inv.currency,
+      inv.subtotal, inv.tax, inv.total, inv.confidence
+    ]);
+    const csv = "\uFEFF" + [header, ...rows].map(r => r.map(csvEscape).join(";")).join("\n");
+    try {
+      await downloadsApi.save({ filename: "scantoexcel-factures.csv", data: csv });
+    } catch (e) { /* viewer declined or error — nothing to do */ }
+  });
+
+  $("exportXlsxBtn").addEventListener("click", async () => {
+    if (!downloadsApi || batch.length === 0 || !window.XLSX) return;
+    const wb = window.XLSX.utils.book_new();
+
+    const header = ["Fournisseur", "N° TVA/SIRET", "Adresse", "N° facture", "Date facture", "Échéance", "Devise", "Sous-total", "TVA", "Total", "Confiance"];
+    const rows = batch.map(inv => [
+      inv.supplier.name, inv.supplier.registration_number, inv.supplier.address,
+      inv.invoice_number, inv.invoice_date, inv.due_date, inv.currency,
+      inv.subtotal, inv.tax, inv.total, inv.confidence
+    ]);
+    const ws1 = window.XLSX.utils.aoa_to_sheet([header, ...rows]);
+    window.XLSX.utils.book_append_sheet(wb, ws1, "Factures");
+
+    const itemHeader = ["N° facture", "Fournisseur", "Description", "Quantité", "Prix unitaire", "Taux TVA %", "Total ligne"];
+    const itemRows = [];
+    batch.forEach(inv => inv.items.forEach(it => {
+      itemRows.push([inv.invoice_number, inv.supplier.name, it.description, it.quantity, it.unit_price, it.tax_rate, it.total]);
+    }));
+    const ws2 = window.XLSX.utils.aoa_to_sheet([itemHeader, ...itemRows]);
+    window.XLSX.utils.book_append_sheet(wb, ws2, "Lignes");
+
+    const out = window.XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    try {
+      await downloadsApi.save({ filename: "scantoexcel-export.xlsx", data: blob });
+    } catch (e) { /* viewer declined or error — nothing to do */ }
+  });
+
+  // ---------- Init ----------
+  loadBatchFromStorage();
+  renderHistory();
+  initCapabilities();
+})();
+</script>
+</body>
+</html>
