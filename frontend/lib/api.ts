@@ -55,7 +55,10 @@ export async function uploadDocument(file: File): Promise<DocumentOut> {
     headers: await authHeaders(),
     body: formData,
   });
-  if (!res.ok) throw new Error(`Échec de l'envoi (${res.status})`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail ?? `Échec de l'envoi (${res.status})`);
+  }
   return res.json();
 }
 

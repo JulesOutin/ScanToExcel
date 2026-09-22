@@ -13,6 +13,8 @@ from app.models.document import Document, DocumentStatus
 from app.schemas.document import DocumentOut, DocumentUpdateIn, ExportRequestIn
 from app.services import export as export_service
 from app.services import storage
+from app.services import usage
+from app.services.extraction import count_pages
 from app.workers.tasks import process_document
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -32,16 +34,34 @@ async def upload_document(
     if len(data) > settings.MAX_UPLOAD_SIZE_BYTES:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Fichier trop volumineux.")
 
-    # TODO Phase 3 : vérifier le compteur d'usage mensuel (UsageCounter) avant d'accepter l'upload.
+    try:
+        page_count = count_pages(data, file.content_type)
+    except Exception:
+        page_count = 1  # un PDF illisible sera de toute façon rejeté à l'extraction
+
+    try:
+        usage.check_and_reserve_pages(db, user.id, page_count)
+    except usage.UsageLimitExceeded as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_402_PAYMENT_REQUIRED,
+            f"Limite du plan gratuit atteinte ({exc.used}/{exc.limit} pages ce mois-ci). Passe à un plan payant pour continuer.",
+        ) from exc
 
     key = storage.build_key(user.id, file.filename or "document")
-    storage.upload_bytes(key, data, file.content_type)
+    try:
+        storage.upload_bytes(key, data, file.content_type)
+    except Exception:
+        usage.release_pages(db, user.id, page_count)
+        db.commit()
+        raise
 
     doc = Document(
         id=uuid.uuid4(),
         user_id=user.id,
         original_filename=file.filename or "document",
         content_type=file.content_type,
+        page_count=page_count,
         storage_key=key,
         status=DocumentStatus.QUEUED,
     )

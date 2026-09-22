@@ -38,6 +38,14 @@ class ExtractionError(Exception):
     pass
 
 
+def count_pages(file_bytes: bytes, content_type: str) -> int:
+    """Nombre de pages du document — sert au comptage d'usage (1 pour une image)."""
+    if content_type != "application/pdf":
+        return 1
+    pdf = pdfium.PdfDocument(file_bytes)
+    return max(1, len(pdf))
+
+
 def pdf_first_page_to_png(pdf_bytes: bytes, scale: float = 2.0) -> bytes:
     """Rend la première page d'un PDF en PNG (pour l'envoyer au modèle multimodal)."""
     pdf = pdfium.PdfDocument(pdf_bytes)

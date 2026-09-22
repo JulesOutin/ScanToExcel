@@ -88,3 +88,40 @@ class UsageCounter(Base):
     user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
     period: Mapped[str] = mapped_column(String, nullable=False)  # "2026-09"
     pages_used: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SubscriptionPlan(str, enum.Enum):
+    FREE = "free"
+    PERSONAL = "personal"
+    PRO = "pro"
+
+
+class SubscriptionStatus(str, enum.Enum):
+    ACTIVE = "active"
+    PAST_DUE = "past_due"
+    CANCELED = "canceled"
+    INCOMPLETE = "incomplete"
+
+
+class Subscription(Base):
+    """Abonnement Stripe d'un utilisateur — une ligne par utilisateur payant ou gratuit."""
+    __tablename__ = "subscriptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+
+    plan: Mapped[SubscriptionPlan] = mapped_column(
+        Enum(SubscriptionPlan, name="subscription_plan"), default=SubscriptionPlan.FREE, nullable=False
+    )
+    status: Mapped[SubscriptionStatus] = mapped_column(
+        Enum(SubscriptionStatus, name="subscription_status"), default=SubscriptionStatus.ACTIVE, nullable=False
+    )
+
+    stripe_customer_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

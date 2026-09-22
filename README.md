@@ -21,9 +21,15 @@ Convertit une facture (PDF ou image) en données Excel/CSV exploitables. Voir `/
 ```bash
 cp backend/.env.example backend/.env
 cp frontend/.env.local.example frontend/.env.local
-# renseigne ANTHROPIC_API_KEY, les identifiants Supabase et S3/R2 dans ces fichiers
+# renseigne ANTHROPIC_API_KEY, les identifiants Supabase, S3/R2 et Stripe dans ces fichiers
 
 docker compose up --build
+```
+
+`docker compose` lance : `db` (Postgres), `redis`, `api` (FastAPI), `worker` (Celery, extraction async) et `beat` (Celery beat, purge programmée des fichiers originaux). Après le premier démarrage, applique les migrations :
+
+```bash
+docker compose exec api alembic upgrade head
 ```
 
 - API : http://localhost:8000/api/v1/health
@@ -42,21 +48,43 @@ uvicorn app.main:app --reload
 # worker (dans un autre terminal)
 celery -A app.workers.celery_app worker --loglevel=info
 
+# beat, pour la purge programmée des fichiers originaux (dans un 3e terminal)
+celery -A app.workers.celery_app beat --loglevel=info
+
 # frontend
 cd frontend
 npm install
 npm run dev
 ```
 
+### Tests backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+pytest
+```
+
+13 tests couvrent les règles de validation d'une facture extraite, l'application des limites du plan gratuit (y compris le cas d'un plan payant actif vs résilié) et la génération des exports Excel/CSV. Ils tournent sans base de données réelle (session Postgres mockée / objets en mémoire).
+
+### Webhook Stripe en local
+
+```bash
+stripe listen --forward-to localhost:8000/api/v1/billing/webhook
+```
+
+Copie le secret affiché (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
+
 ## État d'avancement (voir plan de développement)
 
 - [x] Phase 1 — Prototype : upload, un seul type de document, extraction → JSON, export Excel, stockage temporaire (voir l'artifact publié)
-- [~] Phase 2 — MVP utilisable : ce scaffold pose auth, historique, traitement asynchrone, gestion d'erreurs, Docker. **Manque encore** : page de login Supabase, page de détail document dédiée (`app/documents/[id]`), limites d'usage réellement appliquées, suppression automatique programmée des fichiers originaux.
-- [ ] Phase 3 — Monétisation : Stripe, plans, compteur de pages.
-- [ ] Phase 4 — Produit commercial : SEO, i18n, intégrations comptables.
+- [x] Phase 2 — MVP utilisable : auth Supabase (lien magique + mot de passe, middleware de protection des routes), historique, traitement asynchrone (Celery), gestion d'erreurs, limites du plan gratuit appliquées à l'upload (402 si dépassement), purge programmée des fichiers originaux (Celery beat), Docker.
+- [x] Phase 3 — Monétisation : Stripe Checkout (plans Personnel/Pro), portail client, webhook de synchronisation d'abonnement, page `/facturation`. **Manque encore** : plan gratuit affiché avec la consommation réelle du mois (l'API l'a, le front ne l'affiche pas encore), emails transactionnels.
+- [ ] Phase 4 — Produit commercial : SEO, i18n, intégrations comptables, contrôles SIRET/TVA FR.
 
 ## Notes importantes
 
 - `backend/app/services/extraction.py` appelle l'API Claude directement avec ta propre clé (`ANTHROPIC_API_KEY`), pas le mécanisme `sample` du prototype (qui appartient au viewer d'un artifact) — c'est le bon composant à faire évoluer si tu changes de fournisseur OCR/LLM.
 - Les modèles ne valident pas encore l'unicité ni les contraintes métier avancées (SIRET, TVA FR) : à ajouter en Phase 4 selon la stratégie de différenciation.
-- Aucun test automatisé n'est inclus dans ce scaffold initial.
+- Le plan d'un utilisateur vit dans `subscriptions` (table locale), synchronisée par le webhook Stripe — jamais lue directement depuis l'API Stripe en chemin critique.
+- La suppression automatique (`purge_expired_originals`) ne touche que le fichier source dans le stockage objet ; les données déjà extraites restent en base.
