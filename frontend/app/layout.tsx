@@ -1,19 +1,28 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { TopNav } from "@/components/TopNav";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://scantoexcel.fr";
 
 export const metadata: Metadata = {
-  title: "ScanToExcel",
-  description: "Facture reçue, données prêtes.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "ScanToExcel — Facture reçue, données prêtes",
+    template: "%s · ScanToExcel",
+  },
+  description:
+    "Convertis tes factures PDF et images en tableur Excel ou export comptable (FEC), avec vérification SIRET/TVA intégrée.",
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    siteName: "ScanToExcel",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="font-sans">
-        <TopNav />
-        {children}
-      </body>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }

@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     STRIPE_PRICE_ID_PERSONAL: str = ""
     STRIPE_PRICE_ID_PRO: str = ""
 
+    # Export comptable (FEC — Fichier des Écritures Comptables, format standard français
+    # importable par Pennylane, Sage, QuickBooks, Indy, etc.)
+    COMPANY_SIREN: str = ""  # ton propre SIREN, utilisé pour le nom de fichier FEC
+    FEC_ACCOUNT_PURCHASES: str = "606100"       # compte d'achats par défaut
+    FEC_ACCOUNT_VAT_DEDUCTIBLE: str = "445660"  # TVA déductible sur biens et services
+    FEC_ACCOUNT_SUPPLIERS: str = "401000"       # fournisseurs
+
     # Emails transactionnels (Resend — https://resend.com)
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "ScanToExcel <notifications@scantoexcel.fr>"

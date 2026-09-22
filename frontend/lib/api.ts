@@ -96,7 +96,7 @@ export async function updateDocument(id: string, data: ExtractedInvoice): Promis
   return res.json();
 }
 
-export async function exportDocuments(ids: string[], format: "xlsx" | "csv"): Promise<Blob> {
+export async function exportDocuments(ids: string[], format: "xlsx" | "csv" | "fec"): Promise<Blob> {
   const res = await fetch(`${API_URL}/documents/export`, {
     method: "POST",
     headers: { ...(await authHeaders()), "Content-Type": "application/json" },

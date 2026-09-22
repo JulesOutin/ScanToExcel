@@ -12,6 +12,7 @@ from app.core.security import CurrentUser, get_current_user
 from app.models.document import Document, DocumentStatus
 from app.schemas.document import DocumentOut, DocumentUpdateIn, ExportRequestIn
 from app.services import export as export_service
+from app.services import fec_export
 from app.services import storage
 from app.services import usage
 from app.services.email_templates import near_limit_html
@@ -189,6 +190,10 @@ def export_documents(
         content = export_service.build_csv(docs)
         media_type = "text/csv"
         filename = "scantoexcel-factures.csv"
+    elif payload.format == "fec":
+        content = fec_export.build_fec(docs)
+        media_type = "text/plain"
+        filename = fec_export.fec_filename()
     else:
         content = export_service.build_xlsx(docs)
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

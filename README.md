@@ -82,7 +82,11 @@ Copie le secret affiché (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
 - [x] Phase 3 — Monétisation : Stripe Checkout (plans Personnel/Pro), portail client, webhook de synchronisation d'abonnement, page `/facturation` avec consommation réelle du mois (barre de progression, alerte visuelle à 80 %).
 - [x] Emails transactionnels : confirmation d'extraction (envoyée par le worker après traitement) et alerte à 80 % du quota gratuit (déclenchée une seule fois par période) — via Resend, silencieux si `RESEND_API_KEY` n'est pas configurée.
 - [x] Page de détail document (`/documents/[id]`) : aperçu du fichier original (image ou lien PDF via URL signée), fiche extraite éditable, suivi en direct pendant l'extraction, suppression.
-- [ ] Phase 4 — Produit commercial : SEO, i18n, intégrations comptables, contrôles SIRET/TVA FR.
+- [x] Phase 4 — Produit commercial :
+  - **Contrôles SIRET/TVA FR** : validation par clé de Luhn (SIREN/SIRET) et clé de TVA intracommunautaire (`backend/app/services/french_tax_ids.py`, porté en JS dans `frontend/lib/frenchTaxIds.ts` pour un retour immédiat côté formulaire) — intégrée aux avertissements de la fiche extraite.
+  - **Export comptable FEC** : le Fichier des Écritures Comptables, format standardisé par l'administration fiscale française et importable tel quel dans Pennylane, Sage, QuickBooks, Indy, etc. (`backend/app/services/fec_export.py`, bouton "Export comptable (FEC)" sur le tableau de bord). Les comptes utilisés (achats/TVA/fournisseurs) sont génériques et configurables (`FEC_ACCOUNT_*`) — à ajuster au plan comptable réel de l'utilisateur.
+  - **SEO** : landing page publique à `/` (l'app privée a été déplacée vers `/app`), métadonnées OpenGraph, `robots.ts`/`sitemap.ts`, JSON-LD `SoftwareApplication`.
+  - **i18n** : landing page bilingue FR/EN via `?lang=en` (`hreflang` + `alternates` corrects). Volontairement limité à la landing page pour cette V1 — l'app authentifiée reste en français uniquement ; une i18n complète (sous-chemins `/en/*`, traduction de `/app`) est un chantier à part si le besoin se confirme.
 
 ## Notes importantes
 
@@ -91,3 +95,5 @@ Copie le secret affiché (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
 - Le plan d'un utilisateur vit dans `subscriptions` (table locale), synchronisée par le webhook Stripe — jamais lue directement depuis l'API Stripe en chemin critique.
 - La suppression automatique (`purge_expired_originals`) ne touche que le fichier source dans le stockage objet ; les données déjà extraites restent en base.
 - Les emails transactionnels utilisent Resend (`RESEND_API_KEY`, `EMAIL_FROM`) ; sans clé configurée, l'envoi est simplement loggé et ignoré — aucun impact sur le reste du pipeline.
+- Les identifiants FR (SIREN/SIRET/TVA) sont contrôlés par formule (clé de Luhn, clé de TVA intracommunautaire) : ça détecte les fautes de frappe/erreurs d'OCR, mais ça ne vérifie pas qu'un identifiant *existe réellement* (pas d'appel à l'API Sirene) — à ajouter si besoin.
+- L'export FEC couvre le cas simple (une écriture Achats/TVA/Fournisseurs par facture) ; un cabinet comptable voudra probablement affiner le plan comptable (`FEC_ACCOUNT_*`) et gérer la ventilation multi-comptes par ligne, hors scope de cette V1.

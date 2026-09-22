@@ -16,6 +16,7 @@ from PIL import Image
 
 from app.core.config import get_settings
 from app.schemas.extraction import EXTRACTION_JSON_SCHEMA_EXAMPLE, ExtractedInvoice
+from app.services.french_tax_ids import identify_and_check
 
 settings = get_settings()
 
@@ -132,4 +133,9 @@ def validate_invoice(inv: ExtractedInvoice) -> list[str]:
         expected = item.quantity * item.unit_price
         if item.total and abs(expected - item.total) > max(0.02, expected * 0.02):
             warnings.append(f"Ligne {idx} : quantité × prix unitaire ≠ total de ligne.")
+
+    tax_id_warning = identify_and_check(inv.supplier.registration_number)
+    if tax_id_warning:
+        warnings.append(tax_id_warning)
+
     return warnings

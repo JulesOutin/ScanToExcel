@@ -3,10 +3,30 @@ from app.schemas.extraction import ExtractedInvoice, LineItem, Supplier
 from app.services.extraction import validate_invoice
 
 
+def _luhn_ok(digits: str) -> bool:
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        d = int(ch)
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+def _valid_siren() -> str:
+    for last in "0123456789":
+        candidate = "73282932" + last
+        if _luhn_ok(candidate):
+            return candidate
+    raise AssertionError
+
+
 def make_invoice(**overrides) -> ExtractedInvoice:
     base = dict(
         document_type="invoice",
-        supplier=Supplier(name="Fournisseur SARL", registration_number="FR12345678901", address="1 rue Test"),
+        supplier=Supplier(name="Fournisseur SARL", registration_number="", address="1 rue Test"),
         invoice_number="F-2026-001",
         invoice_date="2026-09-01",
         due_date="2026-10-01",
@@ -24,6 +44,25 @@ def make_invoice(**overrides) -> ExtractedInvoice:
 def test_valid_invoice_has_no_warnings():
     inv = make_invoice()
     assert validate_invoice(inv) == []
+
+
+def test_valid_invoice_with_valid_siret_has_no_warnings():
+    siren = _valid_siren()
+    siret = None
+    for last in "0123456789":
+        candidate = siren + "0001" + last
+        if _luhn_ok(candidate):
+            siret = candidate
+            break
+    assert siret is not None
+    inv = make_invoice(supplier=Supplier(name="Fournisseur SARL", registration_number=siret, address="1 rue Test"))
+    assert validate_invoice(inv) == []
+
+
+def test_invoice_with_bad_siret_is_flagged():
+    inv = make_invoice(supplier=Supplier(name="Fournisseur SARL", registration_number="12345678900000", address=""))
+    warnings = validate_invoice(inv)
+    assert any("SIRET" in w for w in warnings)
 
 
 def test_subtotal_plus_tax_mismatch_is_flagged():

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { ExtractedInvoice, LineItem } from "@/lib/api";
+import { identifyAndCheck } from "@/lib/frenchTaxIds";
 
 function setPath(obj: ExtractedInvoice, path: string, value: string | number): ExtractedInvoice {
   const clone: ExtractedInvoice = JSON.parse(JSON.stringify(obj));
@@ -28,6 +29,8 @@ function validate(inv: ExtractedInvoice): string[] {
       warnings.push(`Ligne ${i + 1} : quantité × prix unitaire ≠ total de ligne.`);
     }
   });
+  const taxIdWarning = identifyAndCheck(inv.supplier.registration_number);
+  if (taxIdWarning) warnings.push(taxIdWarning);
   return warnings;
 }
 

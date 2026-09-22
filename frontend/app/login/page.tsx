@@ -20,7 +20,7 @@ export default function LoginPage() {
     setError(null);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/app` },
     });
     if (error) {
       setError(error.message);
@@ -39,7 +39,7 @@ export default function LoginPage() {
       setError(error.message);
       setStatus("error");
     } else {
-      window.location.href = "/";
+      window.location.href = "/app";
     }
   };
 
